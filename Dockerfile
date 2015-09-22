@@ -12,7 +12,7 @@ RUN easy_install supervisor && \
     easy_install supervisor-stdout
 
 WORKDIR /code
-ADD requirements.txt /code
+ADD requirements.txt /code/
 
 ADD icecast2/icecast.xml /etc/icecast2/
 ADD default/icecast2 /etc/default/
