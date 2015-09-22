@@ -1,0 +1,7 @@
+cython
+requests
+tornado==4.2.1
+python-shout==0.2.1
+
+git+https://github.com/fergalmoran/DeeFuzzer.git
+git+https://github.com/fergalmoran/python-shout.git#python-shout
