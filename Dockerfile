@@ -2,12 +2,17 @@ FROM ubuntu:wily
 MAINTAINER Fergal Moran "Ferg@lMoran.me"
 ENV DEBIAN_FRONTEND noninteractive
 
+RUN mkdir /code
+
 RUN apt-get -qq -y update && \
     apt-get -qq -y install icecast2 python-setuptools && \
     apt-get clean
 
 RUN easy_install supervisor && \
     easy_install supervisor-stdout
+
+WORKDIR /code
+ADD requirements.txt /code
 
 ADD icecast2/icecast.xml /etc/icecast2/
 ADD default/icecast2 /etc/default/
