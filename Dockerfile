@@ -5,7 +5,8 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN mkdir /code
 
 RUN apt-get -qq -y update && \
-    apt-get -qq -y install icecast2 python-setuptools python-pip git && \
+    apt-get -qq -y install icecast2 python-setuptools python-pip pkg-config git \
+                           libcurl4-openssl-dev libshout3 libshout3-dev && \
     apt-get clean
 
 RUN easy_install supervisor && \
