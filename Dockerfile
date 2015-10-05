@@ -1,24 +1,24 @@
-FROM ubuntu:wily
-MAINTAINER Fergal Moran "Ferg@lMoran.me"
-ENV DEBIAN_FRONTEND noninteractive
+FROM ubuntu:latest
+MAINTAINER Fergal Moran <Ferg@lMoran.me>
 
-RUN mkdir /code
+RUN apt-get update -y
+RUN apt-get upgrade -y
 
-RUN apt-get -qq -y update && \
-    apt-get -qq -y install icecast2 python-setuptools python-pip pkg-config git \
-                           libcurl4-openssl-dev libshout3 libshout3-dev && \
-    apt-get clean
+RUN apt-get install -y python-setuptools python-pip git pkg-config libshout3 libshout3-dev python-dev
 
-RUN easy_install supervisor && \
-    easy_install supervisor-stdout
-
+RUN mkdir /code/
 WORKDIR /code
+
 ADD requirements.txt /code/
+ADD server.py /code/
+ADD ice_relay.py /code/
+ADD static /code/static/
+ADD templates /code/templates/
+ADD dss.radio.conf /code/
 
-ADD icecast2/icecast.xml /etc/icecast2/
-ADD default/icecast2 /etc/default/
-ADD supervisord.conf /etc/supervisord.conf
-
+# Install tornado
 RUN pip install -r requirements.txt
-RUN pip install git+https://github.com/fergalmoran/python-shout.git#python-shout --upgrade
 
+EXPOSE 8888
+
+CMD ["python", "server.py"]

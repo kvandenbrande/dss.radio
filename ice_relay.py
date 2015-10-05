@@ -1,61 +1,155 @@
+import logging
 from threading import Thread
 import time
-from deefuzzer import Player
+import urllib
+import shout
+import urllib2
+import requests
 
 BUF_LEN = 4096
 
 
 class IceRelay(Thread):
-    def __init__(self, client, title='DeepSouthSounds Radio'):
+    server_ping = False
+
+    def __init__(self, options, mountpoint='dss', title='DeepSouthSounds Radio'):
         super(IceRelay, self).__init__()
         self.title = title
-        self.s = client
         self._ended = True
-        self.player = Player("icecast")
         self.isOpen = True
         self.audio_queue = []
         self.audio_index = 0
 
-        self.default_queue = [
-            'https://dsscdn.blob.core.windows.net/mixes/7568d3a4-9a9f-4f0f-a900-f84231c26c47.mp3'
-        ]
+        self.channelIsOpen = False
 
-    def stop(self):
+        self.options = options
+
+        self.channel = shout.Shout()
+        self.channel.mount = '/' + mountpoint
+
+        self.api_host = options['api_host']
+        self.channel.url = 'http://deepsouthsounds.com/'
+        self.channel.name = title
+        self.channel.genre = 'Deep House Music'
+        self.channel.description = 'Deep sounds from the deep south'
+        self.channel.format = options['ice_format']
+        self.channel.host = options['ice_host']
+        self.channel.port = int(options['ice_port'])
+        self.channel.user = options['ice_user']
+        self.channel.password = options['ice_password']
+        self.channel.public = 1
+        if self.channel.format == 'mp3':
+            self.channel.audio_info = {
+                'bitrate': str(320),
+                'samplerate': str(48000),
+                'channels': str(2),
+            }
+
+        self.server_url = 'http://' + self.channel.host + ':' + str(self.channel.port) + self.channel.mount
+        print(self.server_url)
+
+    def channel_open(self):
+        if self.channelIsOpen:
+            return True
+
+        try:
+            self.channel.open()
+            self.channelIsOpen = True
+            return True
+        except Exception as ex:
+            logging.error('channel could not be opened: {}'.format(ex))
+
+        return False
+
+    def channel_close(self):
+        self.channelIsOpen = False
         self._ended = True
+        try:
+            self.channel.close()
+            logging.info('channel closed')
+        except Exception as ex:
+            logging.error('channel could not be closed: {}'.format(ex))
+
+    def ping_server(self):
+        log = True
+
+        while not self.server_ping:
+            try:
+                server = urllib.urlopen(self.server_url)
+                self.server_ping = True
+                logging.info('Channel available.')
+            except:
+                time.sleep(1)
+                if log:
+                    logging.error('Could not connect the channel.  Waiting for channel to become available.')
+                    log = False
+
+    def default_queue(self):
+        try:
+            r = requests.get('http://{}/mix/?random=True&limit=1'.format(self.api_host)) \
+                    .json().get('results')[0].get('slug')
+            r = requests.get('http://{}/mix/{}/stream_url'.format(self.api_host, r))
+            url = r.json()['url']
+            return [
+                url
+            ]
+        except Exception as ex:
+            logging.error(ex)
+            return [
+                'https://dsscdn.blob.core.windows.net/mixes/52df41af-5f81-4f00-a9a8-9ffb5dc3185f.mp3'
+            ]
 
     def set_audio_queue(self, queue):
         self.audio_queue = queue
+        self._ended = True
 
     def get_next_play_item(self):
-        print "Finding next item"
-        self._ended = False
+        try:
+            logging.debug("Finding next item")
 
-        # get random item from DSS api
-        if len(self.audio_queue) > self.audio_index:
-            item = self.audio_queue[self.audio_index]
-        else:
-            item = self.default_queue[0]
+            # get random item from DSS api
+            if len(self.audio_queue) > self.audio_index:
+                item = self.audio_queue[self.audio_index]
+            else:
+                item = self.default_queue()[0]
 
-        self.player.set_media(item)
-        print "Playing: {}".format(item)
-        return self.player.file_read_remote()
+            logging.debug("Playing: {}".format(item))
+            self.stream = self.file_read_remote(item)
 
-    def close_channel(self):
-        self.isOpen = False
+            self._ended = False
+            return True
+        except Exception as ex:
+            logging.error('Error getting next play item: {}'.format(ex))
+
+        return False
 
     def run(self):
+        self.ping_server()
         while True:
             now_playing = self.get_next_play_item()
             if now_playing is not None:
-                for chunk in now_playing:
+                for self.chunk in self.stream:
                     try:
-                        self.s.s.send(chunk)
-                        self.s.s.sync()
+                        self.channel.send(self.chunk)
+                        self.channel.sync()
                     except Exception as ex:
-                        print ("Error sending chunk: {0}".format(ex))
-                        self.close_channel()
+                        logging.error("Error sending chunk: {0}".format(ex))
+                        self.channel_close()
                     if self._ended:
                         break
             else:
-                print("No audio, waiting")
+                logging.debug("No audio, waiting")
                 time.sleep(5)
+
+        print "Outta here........"
+
+    def file_read_remote(self, item):
+        """Read remote file and stream data through a generator."""
+        main_buffer_size = 0x10000
+        m = urllib2.urlopen(item)
+        while True:
+            __main_chunk = m.read(main_buffer_size)
+            if not __main_chunk:
+                break
+            yield __main_chunk
+        m.close()
