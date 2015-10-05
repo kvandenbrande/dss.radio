@@ -85,19 +85,25 @@ class IceRelay(Thread):
                     log = False
 
     def default_queue(self):
+        ret = []
         try:
             r = requests.get('http://{}/mix/?random=True&limit=1'.format(self.api_host)) \
-                    .json().get('results')[0].get('slug')
+                .json().get('results')[0].get('slug')
             r = requests.get('http://{}/mix/{}/stream_url'.format(self.api_host, r))
             url = r.json()['url']
-            return [
+            ret = [
                 url
             ]
         except Exception as ex:
             logging.error(ex)
-            return [
+            ret = [
                 'https://dsscdn.blob.core.windows.net/mixes/52df41af-5f81-4f00-a9a8-9ffb5dc3185f.mp3'
             ]
+
+        for p in ret:
+            print("Playing {}".format(p))
+
+        return ret
 
     def set_audio_queue(self, queue):
         self.audio_queue = queue
