@@ -1,3 +1,5 @@
+dss.radio.conf
+
 .gitignore~
 .coverage
 .keystore
@@ -91,5 +93,3 @@ docs/_build/
 
 # PyBuilder
 target/
-
-config.ini
