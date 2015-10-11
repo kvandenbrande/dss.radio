@@ -18,6 +18,13 @@ class MainHandler(tornado.web.RequestHandler):
         self.render("index.html")
 
 
+class ShuffleAudioHandler(tornado.web.RequestHandler):
+    def post(self, *args, **kwargs):
+        try:
+            relay.shuffle_queue()
+        except Exception, ex:
+            raise tornado.web.HTTPError(500, ex.message)
+
 class PlayAudioHandler(tornado.web.RequestHandler):
     def post(self, *args, **kwargs):
         try:
@@ -25,7 +32,6 @@ class PlayAudioHandler(tornado.web.RequestHandler):
             in_file = data.get('audio_file')
             if in_file is not None:
                 relay.set_audio_queue([in_file])
-                time.sleep(10)
         except Exception, ex:
             raise tornado.web.HTTPError(500, ex.message)
 
@@ -82,6 +88,7 @@ def main():
             (r"/", MainHandler),
             (r"/a/play", PlayAudioHandler),
             (r"/a/stop", StopAudioHandler),
+            (r"/a/shuffle", ShuffleAudioHandler),
         ],
         cookie_secret="6f294734-215d-4f98-82e9-8e6ca500f524",
         template_path=os.path.join(os.path.dirname(__file__), "templates"),

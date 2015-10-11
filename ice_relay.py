@@ -119,9 +119,14 @@ class IceRelay(Thread):
 
         return ret
 
+    def shuffle_queue(self):
+        self._ended = True
+        time.sleep(10)
+
     def set_audio_queue(self, queue):
         self.audio_queue = queue
         self._ended = True
+        time.sleep(10)
 
     def get_next_play_item(self):
         try:
