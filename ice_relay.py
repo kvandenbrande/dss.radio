@@ -87,18 +87,32 @@ class IceRelay(Thread):
     def default_queue(self):
         ret = []
         try:
-            r = requests.get('http://{}/mix/?random=True&limit=1'.format(self.api_host)) \
-                .json().get('results')[0].get('slug')
-            r = requests.get('http://{}/mix/{}/stream_url'.format(self.api_host, r))
-            url = r.json()['url']
-            ret = [
-                url
-            ]
+            found = False
+            while not found:
+                r = requests.get('http://{}/_radio?rmix=z'.format(self.api_host))
+                v = r.json()
+                audio = v['url']
+                title = v['title']
+                slug = v['slug']
+                import urllib2
+                try:
+                    ret = urllib2.urlopen(audio)
+                    if ret.code == 200:
+                        found = True
+                        ret = [{
+                            'url': audio,
+                            'description': title,
+                            'slug': slug
+                        }]
+                except urllib2.HTTPError as ex:
+                    pass
         except Exception as ex:
             logging.error(ex)
-            ret = [
-                'https://dsscdn.blob.core.windows.net/mixes/52df41af-5f81-4f00-a9a8-9ffb5dc3185f.mp3'
-            ]
+            ret = [{
+                'url': 'https://dsscdn.blob.core.windows.net/mixes/52df41af-5f81-4f00-a9a8-9ffb5dc3185f.mp3',
+                'description': 'Default song',
+                'slug': '/'
+            }]
 
         for p in ret:
             print("Playing {}".format(p))
@@ -119,8 +133,9 @@ class IceRelay(Thread):
             else:
                 item = self.default_queue()[0]
 
-            logging.debug("Playing: {}".format(item))
-            self.stream = self.file_read_remote(item)
+            self.channel.set_metadata({'song': str(item['description']), 'charset': 'utf-8'})
+            logging.debug("Playing: {}".format(item['description']))
+            self.stream = self.file_read_remote(item['url'])
 
             self._ended = False
             return True
@@ -134,6 +149,8 @@ class IceRelay(Thread):
         while True:
             now_playing = self.get_next_play_item()
             if now_playing is not None:
+
+
                 for self.chunk in self.stream:
                     try:
                         self.channel.send(self.chunk)
