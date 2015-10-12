@@ -5,6 +5,7 @@ import urllib
 import shout
 import urllib2
 import requests
+from util.social import Twitter
 
 BUF_LEN = 4096
 
@@ -37,6 +38,12 @@ class IceRelay(Thread):
         self.channel.port = int(options['ice_port'])
         self.channel.user = options['ice_user']
         self.channel.password = options['ice_password']
+
+        self.twitter_consumer_key = options['twitter_consumer_key']
+        self.twitter_consumer_secret = options['twitter_consumer_secret']
+        self.twitter_access_token = options['twitter_access_token']
+        self.twitter_access_token_secret = options['twitter_access_token_secret']
+
         self.channel.public = 1
         if self.channel.format == 'mp3':
             self.channel.audio_info = {
@@ -142,6 +149,15 @@ class IceRelay(Thread):
             logging.debug("Playing: {}".format(item['description']))
             self.stream = self.file_read_remote(item['url'])
 
+            if self.twitter_access_token and self.twitter_access_token_secret and \
+               self.twitter_consumer_secret and self.twitter_consumer_key:
+                try:
+                    tw = Twitter(key=self.twitter_consumer_key, secret=self.twitter_consumer_secret,
+                                 access_key=self.twitter_access_token, access_secret=self.twitter_access_token_secret)
+                    tw.post("Now playing on DSS Radio - {}\nhttp://deepsouthsounds.com/".format(item['description']))
+                except Exception as ex:
+                    logging.error("Unable to post to twitter: {}".format(ex))
+
             self._ended = False
             return True
         except Exception as ex:
@@ -154,7 +170,6 @@ class IceRelay(Thread):
         while True:
             now_playing = self.get_next_play_item()
             if now_playing is not None:
-
 
                 for self.chunk in self.stream:
                     try:
