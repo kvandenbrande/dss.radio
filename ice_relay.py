@@ -24,26 +24,35 @@ class IceRelay(Thread):
         self.channelIsOpen = False
 
         self.options = options
-
-        self.channel = shout.Shout()
-        self.channel.mount = '/' + mountpoint
+        self.mountpoint = mountpoint
+        self.title = title
 
         self.api_host = options['api_host']
-        self.channel.url = 'http://deepsouthsounds.com/'
-        self.channel.name = title
-        self.channel.genre = 'Deep House Music'
-        self.channel.description = 'Deep sounds from the deep south'
-        self.channel.format = options['ice_format']
-        self.channel.host = options['ice_host']
-        self.channel.port = int(options['ice_port'])
-        self.channel.user = options['ice_user']
-        self.channel.password = options['ice_password']
+        self.api_callback_url = options['api_callback_url']
 
         self.twitter_consumer_key = options['twitter_consumer_key']
         self.twitter_consumer_secret = options['twitter_consumer_secret']
         self.twitter_access_token = options['twitter_access_token']
         self.twitter_access_token_secret = options['twitter_access_token_secret']
 
+        self._channel_mutex = False
+
+        self._open_channel()
+        self.server_url = 'http://' + self.channel.host + ':' + str(self.channel.port) + self.channel.mount
+        print(self.server_url)
+
+    def _open_channel(self):
+        self.channel = shout.Shout()
+        self.channel.mount = '/' + self.mountpoint
+        self.channel.url = 'http://deepsouthsounds.com/'
+        self.channel.name = self.title
+        self.channel.genre = 'Deep House Music'
+        self.channel.description = 'Deep sounds from the deep south'
+        self.channel.format = self.options['ice_format']
+        self.channel.host = self.options['ice_host']
+        self.channel.port = int(self.options['ice_port'])
+        self.channel.user = self.options['ice_user']
+        self.channel.password = self.options['ice_password']
         self.channel.public = 1
         if self.channel.format == 'mp3':
             self.channel.audio_info = {
@@ -51,9 +60,6 @@ class IceRelay(Thread):
                 'samplerate': str(48000),
                 'channels': str(2),
             }
-
-        self.server_url = 'http://' + self.channel.host + ':' + str(self.channel.port) + self.channel.mount
-        print(self.server_url)
 
     def channel_open(self):
         if self.channelIsOpen:
@@ -98,26 +104,19 @@ class IceRelay(Thread):
             while not found:
                 r = requests.get('http://{}/_radio?rmix=z'.format(self.api_host))
                 v = r.json()
-                audio = v['url']
-                title = v['title']
-                slug = v['slug']
                 import urllib2
                 try:
-                    ret = urllib2.urlopen(audio)
+                    ret = urllib2.urlopen(v['url'])
                     if ret.code == 200:
                         found = True
-                        ret = [{
-                            'url': audio,
-                            'description': title,
-                            'slug': slug
-                        }]
+                        ret = [v]
                 except urllib2.HTTPError as ex:
                     pass
         except Exception as ex:
             logging.error(ex)
             ret = [{
                 'url': 'https://dsscdn.blob.core.windows.net/mixes/52df41af-5f81-4f00-a9a8-9ffb5dc3185f.mp3',
-                'description': 'Default song',
+                'title': 'Default song',
                 'slug': '/'
             }]
 
@@ -145,18 +144,21 @@ class IceRelay(Thread):
             else:
                 item = self.default_queue()[0]
 
-            self.channel.set_metadata({'song': str(item['description']), 'charset': 'utf-8'})
-            logging.debug("Playing: {}".format(item['description']))
+            self.channel.set_metadata({'song': str(item['title']), 'charset': 'utf-8'})
+            logging.debug("Playing: {}".format(item['title']))
             self.stream = self.file_read_remote(item['url'])
+            
+            self.post_callback(item['title'], item['slug'])
 
             if self.twitter_access_token and self.twitter_access_token_secret and \
                self.twitter_consumer_secret and self.twitter_consumer_key:
                 try:
                     tw = Twitter(key=self.twitter_consumer_key, secret=self.twitter_consumer_secret,
                                  access_key=self.twitter_access_token, access_secret=self.twitter_access_token_secret)
-                    tw.post("Now playing on DSS Radio - {}\nhttp://deepsouthsounds.com/".format(item['description']))
+                    tw.post("Now playing on DSS Radio - {}\nhttp://deepsouthsounds.com/".format(
+                        item['title'][0:90]))
                 except Exception as ex:
-                    logging.error("Unable to post to twitter: {}".format(ex))
+                    logging.debug("Unable to post to twitter: {}".format(ex))
 
             self._ended = False
             return True
@@ -175,6 +177,13 @@ class IceRelay(Thread):
                     try:
                         self.channel.send(self.chunk)
                         self.channel.sync()
+                    except shout.ShoutException as sex: #(snigger)
+                        if not self._channel_mutex:
+                            self.channelIsOpen = False
+                            self._channel_mutex = True
+                            self.channel_open()
+                        else:
+                            self._channel_mutex = False
                     except Exception as ex:
                         logging.error("Error sending chunk: {0}".format(ex))
                         self.channel_close()
@@ -196,3 +205,9 @@ class IceRelay(Thread):
                 break
             yield __main_chunk
         m.close()
+
+    def post_callback(self, title, slug):
+        if self.api_callback_url:
+            url = "http://{}{}".format(self.api_host, self.api_callback_url.format(title, slug))
+            r = requests.post(url)
+            print (r)

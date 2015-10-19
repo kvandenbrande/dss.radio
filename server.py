@@ -25,13 +25,20 @@ class ShuffleAudioHandler(tornado.web.RequestHandler):
         except Exception, ex:
             raise tornado.web.HTTPError(500, ex.message)
 
+
 class PlayAudioHandler(tornado.web.RequestHandler):
     def post(self, *args, **kwargs):
         try:
-            data = tornado.escape.json_decode(self.request.body)
-            in_file = data.get('audio_file')
-            if in_file is not None:
-                relay.set_audio_queue([in_file])
+            """ check the arguments we've got until we're satisfied they are correct """
+            args = self.request.body_arguments
+            if 'slug' in args and 'title' in args and 'url' in args:
+                relay.set_audio_queue([{
+                    'slug': self.get_body_argument('slug'),
+                    'title': self.get_body_argument('title'),
+                    'url': self.get_body_argument('url')
+                }])
+            else:
+                raise tornado.web.HTTPError(401, "Invalid audio item")
         except Exception, ex:
             raise tornado.web.HTTPError(500, ex.message)
 
@@ -59,6 +66,7 @@ def try_exit():
         tornado.ioloop.IOLoop.instance().stop()
         logging.info('exit success')
 
+
 define("port", default=8888, help="run on the given port", type=int)
 define("debug", default=True, help="run in debug mode")
 
@@ -70,13 +78,14 @@ define("ice_mount", default='/mp3', help="Default icecast mount point")
 define("ice_format", default='mp3', help="Format of the icecast server (mp3, vorbis, flac)")
 define("ice_protocol", default='http', help="Protocol (currently only http)")
 define("api_host", default='api.deepsouthsounds.com', help="API Host for serving audio")
+define("api_callback_url", default='/_radio', help="Callback url for notifying host of songs and ting!")
 
 define("twitter_consumer_key", default='', help="Key for posting to twitter")
 define("twitter_consumer_secret", default='', help="Secret for posting to twitter")
 define("twitter_access_token", default='', help="Key for posting to twitter")
 define("twitter_access_token_secret", default='', help="Secret for posting to twitter")
 
-#tornado.options.parse_command_line()
+# tornado.options.parse_command_line()
 tornado.options.parse_config_file("dss.radio.conf")
 relay = IceRelay(options=options)
 
