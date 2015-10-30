@@ -14,7 +14,7 @@ ADD server.py /code/
 ADD ice_relay.py /code/
 ADD static /code/static/
 ADD templates /code/templates/
-ADD dss.radio.conf /code/
+# ADD dss.radio.conf /code/
 
 # Install tornado
 RUN pip install -r requirements.txt
