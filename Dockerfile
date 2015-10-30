@@ -15,7 +15,7 @@ ADD ice_relay.py /code/
 ADD static /code/static/
 ADD util /code/util/
 ADD templates /code/templates/
-ADD dss.radio.conf /code/
+# ADD dss.radio.conf /code/
 
 RUN pip install -r requirements.txt
 
