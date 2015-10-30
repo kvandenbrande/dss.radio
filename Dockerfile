@@ -13,10 +13,10 @@ ADD requirements.txt /code/
 ADD server.py /code/
 ADD ice_relay.py /code/
 ADD static /code/static/
+ADD util /code/util/
 ADD templates /code/templates/
 ADD dss.radio.conf /code/
 
-# Install tornado
 RUN pip install -r requirements.txt
 
 EXPOSE 8888

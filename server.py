@@ -92,6 +92,7 @@ relay = IceRelay(options=options)
 
 def main():
     if relay.channel_open():
+        logging.error("Starting relay")
         relay.start()
     else:
         logging.error("IceCast relay failed to start")
