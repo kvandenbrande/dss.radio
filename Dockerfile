@@ -11,14 +11,14 @@ WORKDIR /code
 
 ADD requirements.txt /code/
 ADD server.py /code/
+ADD start.sh /code/
 ADD ice_relay.py /code/
 ADD static /code/static/
 ADD util /code/util/
 ADD templates /code/templates/
-# ADD dss.radio.conf /code/
 
 RUN pip install -r requirements.txt
 
 EXPOSE 8888
 
-CMD ["python", "server.py"]
+CMD ["./start.sh"]

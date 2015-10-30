@@ -85,8 +85,8 @@ define("twitter_consumer_secret", default='', help="Secret for posting to twitte
 define("twitter_access_token", default='', help="Key for posting to twitter")
 define("twitter_access_token_secret", default='', help="Secret for posting to twitter")
 
-# tornado.options.parse_command_line()
-tornado.options.parse_config_file("dss.radio.conf")
+tornado.options.parse_command_line()
+#tornado.options.parse_config_file("dss.radio.conf")
 relay = IceRelay(options=options)
 
 
